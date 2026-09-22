@@ -1,3 +1,11 @@
+"""
+data_access.py
+
+This file is meant to mimic a production like data access 
+system based on the json mock data I created. It will be called by
+tools created to access mock data, much like accessing db data.
+"""
+
 import json
 from pathlib import Path
 
@@ -16,11 +24,11 @@ def load_accounts() -> list[dict]:
     return _load_json("accounts.json")
 
 def load_budgets() -> list[dict]:
-    """Load all account records."""
+    """Load all budget records."""
     return _load_json("budgets.json")
 
 def load_transactions() -> list[dict]:
-    """Load all account records."""
+    """Load all transaction records."""
     return _load_json("transactions.json")
 
 if __name__ == "__main__":
