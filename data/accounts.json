@@ -1,0 +1,14 @@
+[
+  {
+    "id": "acct_001",
+    "name": "Everyday Checking",
+    "type": "checking",
+    "balance_cents": 125000
+  },
+  {
+    "id": "acct_002",
+    "name": "Savings",
+    "type": "savings",
+    "balance_cents": 41000
+  }
+]

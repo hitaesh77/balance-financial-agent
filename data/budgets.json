@@ -1,0 +1,12 @@
+[
+  {
+    "category": "dining",
+    "month": "2026-09",
+    "limit_cents": 30000
+  },
+  {
+    "category": "clothing",
+    "month": "2026-09",
+    "limit_cents": 10000
+  }
+]

@@ -1,0 +1,23 @@
+[
+  {
+    "id": "txn_001",
+    "date": "2026-09-20",
+    "merchant": "Chipotle",
+    "category": "dining",
+    "amount_cents": 1487
+  },
+  {
+    "id": "txn_002",
+    "date": "2026-09-21",
+    "merchant": "Starbucks",
+    "category": "dining",
+    "amount_cents": 650
+  },
+  {
+    "id": "txn_003",
+    "date": "2026-09-22",
+    "merchant": "Uniqlo",
+    "category": "clothing",
+    "amount_cents": 2680
+  }
+]
