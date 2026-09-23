@@ -161,15 +161,15 @@ def execute_tool(name: str, arguments: dict) -> dict:
     return tool_function(**arguments)
 
 
-def run_agent(message: str) -> str:
+def run_agent(message: str, history: list[dict] | None = None) -> str:
     """Send a question, handle tool calls, and return the final answer."""
 
-    # create client and add instructions and user message
+    # Work on a copy so a failed request does not damage the session history.
     client = create_client()
-    messages = [
+    messages = list(history) if history else [
         {"role": "system", "content": AGENT_INSTRUCTIONS},
-        {"role": "user", "content": message},
     ]
+    messages.append({"role": "user", "content": message})
     
     # limit how many times agent can request a response
     max_iterations = 10
@@ -183,7 +183,11 @@ def run_agent(message: str) -> str:
         # return answer if model does not need any tools
         assistant_message = response.choices[0].message
         if not assistant_message.tool_calls:
-            return assistant_message.content or ""
+            answer = assistant_message.content or ""
+            messages.append({"role": "assistant", "content": answer})
+            if history is not None:
+                history[:] = messages
+            return answer
 
         # check all requested tools before running them
         parsed_tool_calls = []
