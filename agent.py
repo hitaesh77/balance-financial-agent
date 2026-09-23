@@ -7,10 +7,11 @@ will be made.
 
 import json
 import os
+from inspect import signature
 from pathlib import Path
 from dotenv import load_dotenv
 from openai import OpenAI
-from tools import get_accounts
+from tools import DEMO_DATE, get_accounts, get_budget, get_spending, get_recent_transactions
 
 AGENT_INSTRUCTIONS = """
 You are Balance, a financial assistant working with fictional demo data.
@@ -22,13 +23,68 @@ If data is missing or a tool returns an error, explain that clearly.
 You cannot transfer money or change financial records.
 Keep answers concise. And sound conversational, the target user is genz.
 """.strip()
+AGENT_INSTRUCTIONS += f"\nUse {DEMO_DATE.isoformat()} as today's date for this demo. Weeks begin Monday."
 
 # list of tools usable by agent
 TOOL_FUNCTIONS = {
     "get_accounts": get_accounts,
+    "get_budget": get_budget,
+    "get_spending": get_spending,
+    "get_recent_transactions": get_recent_transactions,
 }
 
 TOOL_DEFINITIONS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_budget",
+            "description": "Get a category's monthly budget limit, spending so far, and remaining amount in cents.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "category": {"type": "string", "description": "Spending category, such as dining or clothing."},
+                },
+                "required": ["category"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_spending",
+            "description": "Get recorded spending in cents for a category and period relative to the demo date.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "category": {"type": "string", "description": "Spending category, such as dining or clothing."},
+                    "period": {
+                        "type": "string",
+                        "enum": ["today", "this_week", "this_month", "last_month"],
+                        "description": "Defaults to this_month. Weeks start Monday.",
+                    },
+                },
+                "required": ["category"],
+                "additionalProperties": False,
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "get_recent_transactions",
+            "description": "List completed purchases newest first, optionally filtered by category. Amounts are in cents.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "category": {"type": ["string", "null"], "description": "Omit or use null to include all categories."},
+                    "limit": {"type": "integer", "minimum": 1, "description": "Maximum purchases to return; defaults to 5."},
+                },
+                "required": [],
+                "additionalProperties": False,
+            },
+        },
+    },
     {
         "type": "function",
         "function": {
@@ -62,8 +118,8 @@ def create_client():
     return OpenAI(api_key=api_key)
 
 
-def execute_tool(name: str, arguments: dict) -> dict:
-    """Validate a requested call and execute an allowed Python function."""
+def validate_tool_arguments(name: str, arguments: dict) -> None:
+    """Check names, required arguments, and types before calling a tool."""
 
     # check if requested tool exists
     if name not in TOOL_FUNCTIONS:
@@ -73,12 +129,32 @@ def execute_tool(name: str, arguments: dict) -> dict:
     if not isinstance(arguments, dict):
         raise ValueError("Tool arguments must be a dictionary.")
     
-    # check if get_accounts was given extra arguments
-    if name == "get_accounts" and arguments:
-        raise ValueError("get_accounts accepts only an empty dictionary.")
+    try:
+        signature(TOOL_FUNCTIONS[name]).bind(**arguments)
+    except TypeError as exc:
+        raise ValueError(f"Invalid arguments for {name}: {exc}") from exc
 
-    # TODO: delete this print
-    print(f"Tool: {name}, arguments: {arguments}")
+    if "category" in arguments:
+        category = arguments["category"]
+        if not (name == "get_recent_transactions" and category is None):
+            if not isinstance(category, str) or not category.strip():
+                raise ValueError("category must be a non-empty string.")
+    if "period" in arguments and arguments["period"] not in (
+        "today", "this_week", "this_month", "last_month"
+    ):
+        raise ValueError("Unsupported spending period.")
+    if "limit" in arguments:
+        limit = arguments["limit"]
+        if type(limit) is not int or limit < 1:
+            raise ValueError("limit must be a positive integer.")
+
+
+def execute_tool(name: str, arguments: dict) -> dict:
+    """Validate a requested call and execute an allowed Python function."""
+    validate_tool_arguments(name, arguments)
+
+    # Show tool calls as evidence for the demo.
+    # print(f"Tool: {name}, arguments: {arguments}")
 
     # get tool and run it with arguments
     tool_function = TOOL_FUNCTIONS[name]
@@ -123,12 +199,7 @@ def run_agent(message: str) -> str:
             except (json.JSONDecodeError, TypeError) as exc:
                 raise ValueError(f"Invalid JSON arguments for tool: {name}") from exc
 
-            # check if arguments are in the right format
-            if not isinstance(arguments, dict):
-                raise ValueError("Tool arguments must be a dictionary.")
-            # check if get_accounts was given extra arguments
-            if name == "get_accounts" and arguments:
-                raise ValueError("get_accounts accepts only an empty dictionary.")
+            validate_tool_arguments(name, arguments)
 
             parsed_tool_calls.append((tool_call.id, name, arguments))
 
