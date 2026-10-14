@@ -231,6 +231,8 @@ def parse_tool_call(tool_call) -> tuple[str, dict]:
         arguments = json.loads(tool_call.function.arguments or "{}")
     except (json.JSONDecodeError, TypeError) as exc:
         raise ValueError(f"Invalid JSON arguments for tool: {name}") from exc
+    if not isinstance(arguments, dict):
+        raise ValueError(f"Tool arguments must be a JSON object: {name}")
     return name, arguments
 
 

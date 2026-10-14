@@ -34,6 +34,20 @@ def tool_call(call_id, name, arguments):
     return SimpleNamespace(id=call_id, function=SimpleNamespace(name=name, arguments=arguments))
 
 
+@pytest.mark.parametrize("arguments", ["null", "[]", '"text"', "42"])
+def test_parse_tool_call_rejects_non_object_json_arguments(arguments):
+    call = tool_call("c1", "get_accounts", arguments)
+    with pytest.raises(ValueError, match="JSON object"):
+        agent.parse_tool_call(call)
+
+
+def test_parse_tool_call_preserves_unicode_and_treats_empty_arguments_as_object():
+    unicode_call = tool_call("c1", "get_transactions", '{"category": "caf\u00e9"}')
+    empty_call = tool_call("c2", "get_accounts", "")
+    assert agent.parse_tool_call(unicode_call) == ("get_transactions", {"category": "caf\u00e9"})
+    assert agent.parse_tool_call(empty_call) == ("get_accounts", {})
+
+
 def fake_client(*replies):
     """Return a client whose create() hands back each scripted reply in order."""
     replies = list(replies)
